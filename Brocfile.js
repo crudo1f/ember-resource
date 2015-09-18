@@ -1,26 +1,25 @@
-module.exports = function(broccoli) {
-  var concatenate = require('broccoli-concat'),
-      uglify = require('broccoli-uglify-js'),
-      mergeTrees = require('broccoli-merge-trees');
 
-  var sourceTree = 'src';
+var concatenate = require('broccoli-concat'),
+    uglify = require('broccoli-uglify-js'),
+    mergeTrees = require('broccoli-merge-trees');
 
-  var concatenated = concatenate(sourceTree, {
-    inputFiles: [
-      'vendor/lru.js',
-      'base.js',
-      'remote_expiry.js',
-      'identity_map.js',
-      'fetch.js',
-      'ember-resource.js',
-      'debug_adapter.js'
-    ],
-    outputFile: '/ember-resource.js'
-  });
+var sourceTree = 'src';
 
-  var minified = uglify(concatenated, {
-    targetExtension: 'min.js'
-  });
+var concatenated = concatenate(sourceTree, {
+  inputFiles: [
+    'vendor/lru.js',
+    'base.js',
+    'remote_expiry.js',
+    'identity_map.js',
+    'fetch.js',
+    'ember-resource.js',
+    'debug_adapter.js'
+  ],
+  outputFile: '/ember-resource.js'
+});
 
-  return mergeTrees([concatenated, minified]);
-};
+var minified = uglify(concatenated, {
+  targetExtension: 'min.js'
+});
+
+module.exports = mergeTrees([concatenated, minified]);

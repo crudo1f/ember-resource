@@ -495,7 +495,7 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
 
   // Used when evaluating schemas to turn a type String into a class.
   Ember.Resource.lookUpType = function(string) {
-    return getPath(string);
+    return getPath(Ember.lookup, string);
   };
 
   Ember.Resource.deepSet = function(obj, path, value) {
@@ -546,9 +546,9 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
   };
 
   Ember.Resource.AbstractSchemaItem = Ember.Object.extend({
-    name: Ember.required(String),
-    getValue: Ember.required(Function),
-    setValue: Ember.required(Function),
+    name: String,        // required
+    getValue: Function,  // required
+    setValue: Function,  // required
 
     dependencies: Ember.computed('path', function() {
       var deps = ['data.' + this.get('path')];
@@ -573,17 +573,19 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
       return type;
     }),
 
-    propertyFunction: function(name, value) {
-      var schemaItem = this.constructor.schema[name];
-      if (arguments.length > 1) {
+    propertyFunction: {
+      get: function(name) {
+        var schemaItem = this.constructor.schema[name];
+        return schemaItem.getValue.call(schemaItem, this);
+      },
+      set: function(name, value) {
+        var schemaItem = this.constructor.schema[name];
         this.resourcePropertyWillChange(name, value);
         schemaItem.setValue.call(schemaItem, this, value);
         value = schemaItem.getValue.call(schemaItem, this);
         this.resourcePropertyDidChange(name, value);
-      } else {
-        value = schemaItem.getValue.call(schemaItem, this);
+        return value;
       }
-      return value;
     },
 
     property: function() {
@@ -597,11 +599,7 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
   });
   Ember.Resource.AbstractSchemaItem.reopenClass({
     create: function(name, schema) {
-      var createWithMixins = this.superclass.createWithMixins || this._super;
-
-      var instance = createWithMixins.apply(this);
-      instance.set('name', name);
-      return instance;
+      return this._super({name: name});
     }
   });
 
@@ -638,7 +636,7 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
 
   Ember.Resource.AttributeSchemaItem = Ember.Resource.AbstractSchemaItem.extend({
     theType: Object,
-    path: Ember.required(String),
+    path: String, // required
 
     getValue: function(instance) {
       var value;
@@ -1026,7 +1024,7 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
 
     toJSON: function(instance) {
       var value = getPath(instance, this.name);
-      return value ? value.mapProperty('id') : value;
+      return value ? value.mapBy('id') : value;
     }
   });
   Ember.Resource.HasManyInArraySchemaItem.reopenClass({
@@ -1131,27 +1129,27 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
         });
       },
 
-      isFetchable: Ember.computed(function(key, value) {
+      isFetchable: Ember.computed(function(key) {
         var state = getPath(this, 'resourceState');
         return state == Ember.Resource.Lifecycle.UNFETCHED || this.get('isExpired');
-      }).volatile(),
+      }).volatile().readOnly(),
 
-      isInitializing: Ember.computed('resourceState', function (key, value) {
+      isInitializing: Ember.computed('resourceState', function (key) {
         return (getPath(this, 'resourceState') || Ember.Resource.Lifecycle.INITIALIZING) === Ember.Resource.Lifecycle.INITIALIZING;
-      }),
+      }).readOnly(),
 
-      isFetching: Ember.computed('resourceState', function(key, value) {
+      isFetching: Ember.computed('resourceState', function(key) {
         return (getPath(this, 'resourceState')) === Ember.Resource.Lifecycle.FETCHING;
-      }),
+      }).readOnly(),
 
-      isFetched: Ember.computed('resourceState', function(key, value) {
+      isFetched: Ember.computed('resourceState', function(key) {
         return (getPath(this, 'resourceState')) === Ember.Resource.Lifecycle.FETCHED;
-      }),
+      }).readOnly(),
 
 
       hasBeenFetched: false,
 
-      isSavable: Ember.computed('resourceState', function(key, value) {
+      isSavable: Ember.computed('resourceState', function(key) {
         var state = getPath(this, 'resourceState');
         var unsavableState = [
           Ember.Resource.Lifecycle.INITIALIZING,
@@ -1161,11 +1159,11 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
         ];
 
         return state && !unsavableState.contains(state);
-      }),
+      }).readOnly(),
 
-      isSaving: Ember.computed('resourceState', function(key, value) {
+      isSaving: Ember.computed('resourceState', function(key) {
         return (getPath(this, 'resourceState')) === Ember.Resource.Lifecycle.SAVING;
-      }),
+      }).readOnly(),
 
       // Notify dependents on volatile properties
       resourceStateDidChange: function() {
@@ -1193,12 +1191,12 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
         return this.fetch();
       },
 
-      isExpired: Ember.computed(function(name, value) {
+      isExpired: Ember.computed(function(name) {
         var expireAt = this.get('expireAt');
         var now = new Date();
 
         return !!(expireAt && expireAt.getTime() <= now.getTime());
-      }).volatile(),
+      }).volatile().readOnly(),
 
       isFresh: function(data) {
         return true;
@@ -1330,7 +1328,9 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
 
     save: function(options) {
       options = options || {};
-      if (!getPath(this, 'isSavable')) return false;
+      if (!getPath(this, 'isSavable')) {
+        return $.Deferred().reject(false);
+      }
 
       var ajaxOptions = {
         contentType: 'application/json',
@@ -1467,8 +1467,6 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
       if (klass === this) {
         var instance;
 
-        var createWithMixins = this.superclass.createWithMixins || this._super;
-
         var id = data.id || options.id;
         if (id && !options.skipIdentityMap && this.useIdentityMap) {
           this.identityMap = this.identityMap || new Ember.Resource.IdentityMap(this.identityMapLimit);
@@ -1477,7 +1475,7 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
           instance = this.identityMap.get(id);
 
           if (!instance) {
-            instance = createWithMixins.call(this, { data: data });
+            instance = this._super({ data: data });
             this.identityMap.put(id, instance);
           } else {
             instance.updateWithApiData(data);
@@ -1486,7 +1484,7 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
             delete options.id;
           }
         } else {
-          instance = createWithMixins.call(this, { data: data });
+          instance = this._super({ data: data });
         }
 
         delete options.data;
@@ -1639,7 +1637,7 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
 
   Ember.ResourceCollection = Ember.ArrayProxy.extend(Ember.Resource.RemoteExpiry, {
     isEmberResourceCollection: true,
-    type: Ember.required(),
+    type: null, // required
 
     fetched: function() {
       if (!this._fetchDfd) {
@@ -1734,8 +1732,9 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
       return length;
     }),
 
-    content: Ember.computed(function(name, value) {
-      if (arguments.length === 2) { // setter
+    content: Ember.computed({
+      get: function() {},
+      set: function(name, value) {
         return this.instantiateItems(value);
       }
     }),
@@ -1766,17 +1765,15 @@ if (typeof this === 'object') this.LRUCache = LRUCache;
 
       var instance;
 
-      var createWithMixins = this.superclass.createWithMixins || this._super;
-
       if (!options.prePopulated && options.url && this.useIdentityMap) {
         this.identityMap = this.identityMap || new Ember.Resource.IdentityMap(this.identityMapLimit);
         options.id = options.id || makeId(options.type, options.url);
-        instance = this.identityMap.get(options.id) || createWithMixins.call(this, options);
+        instance = this.identityMap.get(options.id) || this._super(options);
         this.identityMap.put(options.id, instance);
       }
 
       if (!instance) {
-        instance = createWithMixins.call(this, options);
+        instance = this._super(options);
 
         if (content) {
           set(instance, 'content', instance.parse(content));

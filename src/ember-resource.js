@@ -29,7 +29,7 @@
 
   // Used when evaluating schemas to turn a type String into a class.
   Ember.Resource.lookUpType = function(string) {
-    return getPath(string);
+    return getPath(Ember.lookup, string);
   };
 
   Ember.Resource.deepSet = function(obj, path, value) {
@@ -558,7 +558,7 @@
 
     toJSON: function(instance) {
       var value = getPath(instance, this.name);
-      return value ? value.mapProperty('id') : value;
+      return value ? value.mapBy('id') : value;
     }
   });
   Ember.Resource.HasManyInArraySchemaItem.reopenClass({

@@ -1,5 +1,7 @@
 # Ember-Resource
 
+**Note**: this branch is compatible with Ember.js version 1.12 and later, including Ember.js 2.0.
+
 A simple library to connect your Ember.js application to JSON backends.
 
 * Current stable version: `2.0`

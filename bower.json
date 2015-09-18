@@ -25,6 +25,6 @@
   ],
   "dependencies": {
     "jquery": ">=1.7 <3",
-    "ember": "1.x"
+    "ember": ">= 1.12.x < 3"
   }
 }

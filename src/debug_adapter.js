@@ -100,7 +100,8 @@ if (Ember.DataAdapter) {
     Application.initializer({
       name: "dataAdapter",
 
-      initialize: function(container, application) {
+      initialize: function() {
+        var application = arguments[1] || arguments[0];
         application.register('dataAdapter:main', DebugAdapter);
       }
     });
